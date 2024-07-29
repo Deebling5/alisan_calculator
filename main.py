@@ -8,7 +8,7 @@ st.title("Module Configurator")
 st.markdown("""
 <style>
     .main {
-        background-color: #8ab0e6;
+        background-color: #2f3030;
         padding: 20px;
         border-radius: 10px;
     }

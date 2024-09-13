@@ -1,7 +1,10 @@
+import datetime
 import streamlit as st
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
 # Define available options
 module_sizes = ["2M", "4M", "6M", "8M", "12M"]
@@ -16,122 +19,91 @@ accessories = {"10 Amp Socket(2M)": 2, "16 Amp Socket(2M)": 2, "USB (1M)": 1, "2
 glass_colors = ["Black", "Champagne Gold", "Space Grey"]
 bezel_colors = ["Black", "Chrome", "Gold"]
 automation_required = ["Yes", "No"]
-# Part codes for different components
-part_codes = {
-    "touch_sense_board": {
-        "2 Switch (1-HD)": "2_SEN_S2",
-        "4 Switch": "2_SEN_S4",
-        "1 Fan": "2_SEN_F1",
-        "1 Light Dimmer": "2_SEN_F1",
-        "1 Curtain": "2_SEN_C1",
-        "2 Curtain": "2_SEN_C2",
-        "Bell Switch": "2_SEN_B",
-        "4 switch 1 fan": "4_SEN_S4F1",
-        "4 switch 1 dimmer": "4_SEN_S4F1",
-        "2 switch 1 fan (1-HD)": "4_SEN_S2F1",
-        "6 switch (1-HD)": "4_SEN_S6",
-        "8 Switch (1-HD)": "4_SEN_S8",
-        "2 Dimmer": "4_SEN_F2",
-        "4 switch 2 fan": "6_SEN_S4F2",
-        "4 switch 2 dimmer": "6_SEN_S4F2",
-        "4 switch 1 fan 1 dimmer": "6_SEN_S4F2",
-        "6 switch 1 fan (1-HD)": "6_SEN_S6F1",
-        "8 switch 1 dimmer (1-HD)": "6_SEN_S8F1",
-        "8 switch 1 Fan (1-HD)": "6_SEN_S8F1",
-        "10 Switch (2-HD)": "6_SEN_S10"
-    },
-    "relay_board_pcb": {
-        "2 Switch (1 - HD)": "2_REL_S2",
-        "4 Switch": "2_REL_S4",
-        "1 Fan": "2_REL_F1",
-        "1 Light Dimmer": "2_REL_D1",
-        "1 Curtain": "2_REL_C1",
-        "2 Curtain": "2_REL_C2",
-        "Bell Switch": "2_REL_B",
-        "4 switch 1 fan": "4_REL_S4F1",
-        "4 switch 1 dimmer": "4_REL_S4D1",
-        "2 switch 1 fan (1 - HD)": "4_REL_S2F1",
-        "6 switch (1 - HD)": "4_REL_S6",
-        "8 Switch (1 - HD)": "4_REL_S8",
-        "2 Dimmer": "4_REL_F2",
-        "4 switch 2 fan": "4_REL_S4F2",
-        "4 switch 2 dimmer": "4_REL_S4D2",
-        "6 switch 1 fan (1 - HD)": "6_REL_S6F1",
-        "4 switch 1 fan 1 dimmer": "6_REL_S4F1D1",
-        "8 switch 1 dimmer (1 - HD)": "6_REL_S8D1",
-        "10 Switch (2 - HD)": "6_REL_S10",
-        "8 switch 1 Fan": "6_REL_S8F1"
-    },
-    "power_supply": "F_DUAL_PS",
-    "esp": "FTT_ESP",
-    "big_cover": {
-        "4M": "4M Cover Part Number",
-        "6M": "6M Cover Part Number"
-    },
-    "small_cover": "Small Cover Part Number",
-    "screw": {
-        "2M": "4 Screws",
-        "4M": "6 Screws",
-        "6M": "8 Screws"
-    }
-}
 
-# User selections
-module_size = st.selectbox("Select Module Size", module_sizes)
-remaining_space = int(module_size[:-1])  # Extract numeric part from module size (e.g., "12M" -> 12)
+# Ask how many modules to configure
+num_modules = st.number_input("Enter number of modules to configure", min_value=1, step=1)
+module_data = []
 
-st.write(f"Module Size: {module_size}, Total Space: {remaining_space}M")
+# Loop through the number of modules
+for module_index in range(num_modules):
+    st.write(f"### Module {module_index + 1}")
 
-# Accessory selection
-selected_accessories = []
-for accessory, size in accessories.items():
-    if st.checkbox(f"Add {accessory}"):
-        if remaining_space >= size:
-            selected_accessories.append(accessory)
-            remaining_space -= size
-            st.write(f"{accessory} added, Remaining Space: {remaining_space}M")
-        else:
-            st.warning(f"Not enough space for {accessory}.")
+    # User selections per module
+    module_size = st.selectbox(f"Select Module Size for Module {module_index + 1}", module_sizes,
+                               key=f"module_size_{module_index}")
+    remaining_space = int(module_size[:-1])  # Extract numeric part from module size (e.g., "12M" -> 12)
 
-# Ensure space management for 1M accessories
-if remaining_space == 1:
-    st.warning("You must add another 1M accessory.")
+    st.write(f"Module Size: {module_size}, Total Space: {remaining_space}M")
+
+    # Accessory selection for each module
+    selected_accessories = []
     for accessory, size in accessories.items():
-        if size == 1 and accessory not in selected_accessories:
-            if st.checkbox(f"Add {accessory}", key=f"{accessory}_1M"):
+        if st.checkbox(f"Add {accessory} to Module {module_index + 1}", key=f"{accessory}_module_{module_index}"):
+            if remaining_space >= size:
                 selected_accessories.append(accessory)
                 remaining_space -= size
-                st.write(f"{accessory} added, Remaining Space: {remaining_space}M")
+                st.write(f"{accessory} added to Module {module_index + 1}, Remaining Space: {remaining_space}M")
+            else:
+                st.warning(f"Not enough space for {accessory} in Module {module_index + 1}.")
 
-# Circuit selection to fill remaining space
-selected_circuits = []
-if remaining_space > 0:
-    st.write(f"Select circuits to fill the remaining {remaining_space}M space:")
-    while remaining_space > 0:
-        available_circuits = [size for size in circuits if int(size[:-1]) <= remaining_space]
-        if not available_circuits:
-            st.warning("Not enough space left for any circuit.")
-            break
-        selected_circuit_size = st.selectbox("Select Circuit Size", available_circuits,
-                                             key=f"circuit_{remaining_space}")
-        selected_circuit = st.selectbox("Select Circuit", circuits[selected_circuit_size],
-                                        key=f"option_{remaining_space}")
-        selected_circuits.append(f"{selected_circuit} ({selected_circuit_size})")
-        remaining_space -= int(selected_circuit_size[:-1])
+    # Ensure space management for 1M accessories
+    if remaining_space == 1:
+        st.warning(f"You must add another 1M accessory for Module {module_index + 1}.")
+        for accessory, size in accessories.items():
+            if size == 1 and accessory not in selected_accessories:
+                if st.checkbox(f"Add {accessory} (1M) to Module {module_index + 1}",
+                               key=f"{accessory}_1M_module_{module_index}"):
+                    selected_accessories.append(accessory)
+                    remaining_space -= size
+                    st.write(f"{accessory} added to Module {module_index + 1}, Remaining Space: {remaining_space}M")
 
-# Glass and Bezel Color selection
-glass_color = st.selectbox("Select Glass Colour", glass_colors)
-bezel_color = st.selectbox("Select Bezel Colour", bezel_colors)
-automation = st.selectbox("Automation Required", automation_required)
+    # Circuit selection to fill remaining space
+    selected_circuits = []
+    if remaining_space > 0:
+        st.write(f"Select circuits to fill the remaining {remaining_space}M space for Module {module_index + 1}:")
+        while remaining_space > 0:
+            available_circuits = [size for size in circuits if int(size[:-1]) <= remaining_space]
+            if not available_circuits:
+                st.warning(f"Not enough space left for any circuit in Module {module_index + 1}.")
+                break
+            selected_circuit_size = st.selectbox(f"Select Circuit Size for Module {module_index + 1}",
+                                                 available_circuits,
+                                                 key=f"circuit_size_{module_index}_{remaining_space}")
+            selected_circuit = st.selectbox(f"Select Circuit for Module {module_index + 1}",
+                                            circuits[selected_circuit_size],
+                                            key=f"option_{module_index}_{remaining_space}")
+            selected_circuits.append(f"{selected_circuit} ({selected_circuit_size})")
+            remaining_space -= int(selected_circuit_size[:-1])
 
-# Display summary
-st.write("### Summary")
-st.write(f"Module Size: {module_size}")
-st.write(f"Selected Accessories: {', '.join(selected_accessories) if selected_accessories else 'None'}")
-st.write(f"Selected Circuits: {', '.join(selected_circuits) if selected_circuits else 'None'}")
-st.write(f"Glass Colour: {glass_color}")
-st.write(f"Bezel Colour: {bezel_color}")
-st.write(f"Automation Required: {automation}")
+    # Glass and Bezel Color selection
+    glass_color = st.selectbox(f"Select Glass Colour for Module {module_index + 1}", glass_colors,
+                               key=f"glass_color_{module_index}")
+    bezel_color = st.selectbox(f"Select Bezel Colour for Module {module_index + 1}", bezel_colors,
+                               key=f"bezel_color_{module_index}")
+    automation = st.selectbox(f"Automation Required for Module {module_index + 1}", automation_required,
+                              key=f"automation_{module_index}")
+
+    # Store data for this module
+    module_data.append({
+        "module_size": module_size,
+        "selected_accessories": selected_accessories,
+        "selected_circuits": selected_circuits,
+        "glass_color": glass_color,
+        "bezel_color": bezel_color,
+        "automation": automation
+    })
+
+# Display summary for each module
+st.write("### Summary of All Modules")
+for i, module in enumerate(module_data, start=1):
+    st.write(f"#### Module {i}")
+    st.write(f"Module Size: {module['module_size']}")
+    st.write(
+        f"Selected Accessories: {', '.join(module['selected_accessories']) if module['selected_accessories'] else 'None'}")
+    st.write(f"Selected Circuits: {', '.join(module['selected_circuits']) if module['selected_circuits'] else 'None'}")
+    st.write(f"Glass Colour: {module['glass_color']}")
+    st.write(f"Bezel Colour: {module['bezel_color']}")
+    st.write(f"Automation Required: {module['automation']}")
 
 
 def extract_circuit_parts(circuit):
@@ -148,104 +120,109 @@ def get_initials(phrase):
     # Initialize an empty string to store the result
     result = ""
 
-    # Iterate over pairs of numbers and words
-    for i in range(0, len(words), 2):
-        # First, handle the word (non-numeric)
-        word = words[i + 1]
-        # Get the corresponding number (numeric word)
-        number = words[i]
-
-        # Append the initial of the word and the corresponding number
-        result += word[0].upper() + number
+    # Iterate over each word in the phrase
+    for word in words:
+        # If the word is a number, keep it as is
+        if word.isdigit():
+            result += word
+        else:
+            # Otherwise, append the first letter of the word (uppercase)
+            result += word[0].upper()
 
     return result
 
-
-# Generate PDF Report
-def generate_pdf_report(front_panel_color, module_size, selected_circuits, accessories, automation_required):
-    # Create a PDF document
-    pdf_filename = "report.pdf"
+def generate_pdf_report(modules):
+    pdf_filename = f"Alisan_{datetime.date.today()}.pdf"
     doc = SimpleDocTemplate(pdf_filename, pagesize=A4)
     elements = []
+    styles = getSampleStyleSheet()
 
-    # Table Data (first row as headers)
-    data = [["Component", "Details", "Part Code"]]
+    for idx, module in enumerate(modules, 1):
+        elements.append(Paragraph(f"Module {idx} Report", styles["Heading2"]))
 
-    # Front Panel
-    front_panel_part_code = f"{module_size}{front_panel_color[0].upper()}F"
-    data.append(["Front Panel", f"Colour: {front_panel_color}, Size: {module_size}", front_panel_part_code])
+        data = [["Component", "Details", "Part Code"]]
+        module_size = module['module_size']
+        glass_color = module['glass_color']
+        bezel_color = module['bezel_color']
+        automation = module['automation']
+        selected_accessories = module['selected_accessories']
+        selected_circuits = module['selected_circuits']
 
-    # Back Panel
-    back_panel_part_code = f"{module_size}B"
-    data.append(["Back Panel", f"Size: {module_size}", back_panel_part_code])
+        # Front Panel
+        front_panel_part_code = f"{module_size}{glass_color[0].upper()}F"
+        data.append(["Front Panel", f"Colour: {glass_color}, Size: {module_size}", front_panel_part_code])
 
-    # Touch Sense Board
-    for circuit in selected_circuits:
-        circuit_name, circuit_size = extract_circuit_parts(circuit)
-        circuit_name = get_initials(circuit_name)
-        part_code = f"{circuit_size}_SEN_{circuit_name.replace(' ', '_').upper()}"
-        data.append(["Touch Sense Board", f"Circuit: {circuit}", part_code])
+        # Back Panel
+        back_panel_part_code = f"{module_size}B"
+        data.append(["Back Panel", f"Size: {module_size}", back_panel_part_code])
 
-    # Relay Board PCB
-    for circuit in selected_circuits:
-        circuit_name, circuit_size = extract_circuit_parts(circuit)
-        circuit_name = get_initials(circuit_name)
-        part_code = f"{circuit_size}_REL_{circuit_name.replace(' ', '_').upper()}"
-        data.append(["Relay Board PCB", f"Circuit: {circuit}", part_code])
+        # Touch Sense Board
+        for circuit in selected_circuits:
+            circuit_name, circuit_size = extract_circuit_parts(circuit)
+            circuit_name = get_initials(circuit_name)
+            data.append(
+                ["Touch Sense Board", f"{circuit}", f"{circuit_size}_SEN_{circuit_name.replace(' ', '_').upper()}"])
 
-    # Power Supply
-    data.append(["Power Supply", "Compulsory", "F_DUAL_PS"])
+        # Relay Board PCB
+        for circuit in selected_circuits:
+            circuit_name, circuit_size = extract_circuit_parts(circuit)
+            circuit_name = get_initials(circuit_name)
+            data.append(
+                ["Relay Board PCB", f"{circuit}", f"{circuit_size}_REL_{circuit_name.replace(' ', '_').upper()}"])
 
-    # ESP (for Automation)
-    if automation_required == "Yes":
-        data.append(["ESP", "Automation Board", "ESP_COMMON"])
+        # Accessories
+        if selected_accessories:
+            for accessory in selected_accessories:
+                data.append(["Accessory", accessory, ""])
+        else:
+            data.append(["Accessories", "No accessories selected.", ""])
 
-    # C Section
-    c_section_count = int(module_size[:-1]) // 2
-    data.append(["C Section", f"Number of C Sections: {c_section_count}", ""])
+        # Automation
+        if automation == "Yes":
+            data.append(["ESP", "Automation Board", "ESP_COMMON"])
 
-    # Big Cover
-    big_cover_size = "4M" if int(module_size[:-1]) <= 4 else "6M"
-    data.append(["Big Cover", f"Size: {big_cover_size}", f"BIG_COVER_{big_cover_size}"])
+        # Power Supply
+        data.append(["Power Supply", "Compulsory", "F_DUAL_PS"])
 
-    # Small Cover
-    data.append(["Small Cover", "", "SMALL_COVER_1PC"])
+        # bezel
+        data.append(["Bezel Colour", bezel_color, "-"])
 
-    # Screws
-    screws_required = 2 + 2 * (int(module_size[:-1]) // 2)
-    data.append(["Screw", f"Number of Screws: {screws_required}", f"SCREW_{screws_required}PCS"])
+        # C Section
+        c_section_count = int(module_size[:-1]) // 2
+        data.append(["C Section", f"Number of C Sections: {c_section_count}", ""])
 
-    # Accessories
-    if accessories:
-        for accessory in accessories:
-            data.append(["Accessory", accessory, ""])
-    else:
-        data.append(["Accessories", "No accessories selected.", ""])
+        # Big Cover
+        big_cover_size = "4M" if int(module_size[:-1]) <= 4 else "6M"
+        data.append(["Big Cover", f"Size: {big_cover_size}", f"BIG_COVER_{big_cover_size}"])
 
-    # Create the table
-    table = Table(data)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),  # Header row background
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),  # Header row text color
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  # Align text center
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),  # Header font
-        ('FONTSIZE', (0, 0), (-1, 0), 12),  # Header font size
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),  # Header padding
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),  # Body background color
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)  # Add gridlines
-    ]))
+        # Small Cover
+        data.append(["Small Cover", "-", "SMALL_COVER_1PC"])
 
-    # Add the table to the elements
-    elements.append(table)
+        # Screws
+        screws_required = 2 + 2 * (int(module_size[:-1]) // 2)
+        data.append(["Screw", f"Number of Screws: {screws_required}", f"SCREW_{screws_required}PCS"])
 
-    # Build the PDF
+        # Add a table for each module
+        table = Table(data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+
+        elements.append(table)
+        elements.append(Spacer(1, 0.2 * inch))
+
     doc.build(elements)
-
     return pdf_filename
 
 
-# Button to generate the PDF
 if st.button("Generate PDF Report"):
-    pdf_filename = generate_pdf_report(glass_color, module_size, selected_circuits, selected_accessories, automation)
+    pdf_filename = generate_pdf_report(module_data)
     with open(pdf_filename, "rb") as pdf_file:
         st.download_button(label="Download PDF", data=pdf_file, file_name=pdf_filename, mime="application/pdf")

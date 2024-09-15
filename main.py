@@ -1,10 +1,13 @@
 import datetime
+
 import streamlit as st
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from collections import Counter
+
 
 # Define available options
 module_sizes = ["2M", "4M", "6M", "8M", "12M"]
@@ -131,11 +134,14 @@ def get_initials(phrase):
 
     return result
 
+
 def generate_pdf_report(modules):
     pdf_filename = f"Alisan_{datetime.date.today()}.pdf"
     doc = SimpleDocTemplate(pdf_filename, pagesize=A4)
     elements = []
     styles = getSampleStyleSheet()
+
+    part_counter = Counter()  # Counter to store total pieces of each part code
 
     for idx, module in enumerate(modules, 1):
         elements.append(Paragraph(f"Module {idx} Report", styles["Heading2"]))
@@ -151,24 +157,28 @@ def generate_pdf_report(modules):
         # Front Panel
         front_panel_part_code = f"{module_size}{glass_color[0].upper()}F"
         data.append(["Front Panel", f"Colour: {glass_color}, Size: {module_size}", front_panel_part_code])
+        part_counter[front_panel_part_code] += 1  # Increment part counter
 
         # Back Panel
         back_panel_part_code = f"{module_size}B"
         data.append(["Back Panel", f"Size: {module_size}", back_panel_part_code])
+        part_counter[back_panel_part_code] += 1
 
         # Touch Sense Board
         for circuit in selected_circuits:
             circuit_name, circuit_size = extract_circuit_parts(circuit)
             circuit_name = get_initials(circuit_name)
-            data.append(
-                ["Touch Sense Board", f"{circuit}", f"{circuit_size}_SEN_{circuit_name.replace(' ', '_').upper()}"])
+            part_code = f"{circuit_size}_SEN_{circuit_name.replace(' ', '_').upper()}"
+            data.append(["Touch Sense Board", f"{circuit}", part_code])
+            part_counter[part_code] += 1
 
         # Relay Board PCB
         for circuit in selected_circuits:
             circuit_name, circuit_size = extract_circuit_parts(circuit)
             circuit_name = get_initials(circuit_name)
-            data.append(
-                ["Relay Board PCB", f"{circuit}", f"{circuit_size}_REL_{circuit_name.replace(' ', '_').upper()}"])
+            part_code = f"{circuit_size}_REL_{circuit_name.replace(' ', '_').upper()}"
+            data.append(["Relay Board PCB", f"{circuit}", part_code])
+            part_counter[part_code] += 1
 
         # Accessories
         if selected_accessories:
@@ -180,27 +190,33 @@ def generate_pdf_report(modules):
         # Automation
         if automation == "Yes":
             data.append(["ESP", "Automation Board", "ESP_COMMON"])
+            part_counter["ESP_COMMON"] += 1
 
         # Power Supply
         data.append(["Power Supply", "Compulsory", "F_DUAL_PS"])
+        part_counter["F_DUAL_PS"] += 1
 
-        # bezel
+        # Bezel
         data.append(["Bezel Colour", bezel_color, "-"])
 
         # C Section
         c_section_count = int(module_size[:-1]) // 2
         data.append(["C Section", f"Number of C Sections: {c_section_count}", ""])
+        part_counter["C_SECTION"] += c_section_count
 
         # Big Cover
         big_cover_size = "4M" if int(module_size[:-1]) <= 4 else "6M"
         data.append(["Big Cover", f"Size: {big_cover_size}", f"BIG_COVER_{big_cover_size}"])
+        part_counter[f"BIG_COVER_{big_cover_size}"] += 1
 
         # Small Cover
         data.append(["Small Cover", "-", "SMALL_COVER_1PC"])
+        part_counter["SMALL_COVER_1PC"] += 1
 
         # Screws
         screws_required = 2 + 2 * (int(module_size[:-1]) // 2)
         data.append(["Screw", f"Number of Screws: {screws_required}", f"SCREW_{screws_required}PCS"])
+        part_counter[f"SCREW_{screws_required}PCS"] += screws_required
 
         # Add a table for each module
         table = Table(data)
@@ -217,6 +233,27 @@ def generate_pdf_report(modules):
 
         elements.append(table)
         elements.append(Spacer(1, 0.2 * inch))
+
+    # Add a second table showing the total pieces for each part code
+    elements.append(Paragraph("Total Pieces by Part Code", styles["Heading2"]))
+
+    total_pieces_data = [["Part Code", "Total Pieces"]]
+    for part_code, count in part_counter.items():
+        total_pieces_data.append([part_code, str(count)])
+
+    total_pieces_table = Table(total_pieces_data)
+    total_pieces_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+
+    elements.append(total_pieces_table)
 
     doc.build(elements)
     return pdf_filename
